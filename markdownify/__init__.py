@@ -126,7 +126,7 @@ class MarkdownConverter(object):
         return self.process_tag(soup, convert_as_inline=False, children_only=True)
 
     def process_tag(self, node, convert_as_inline, children_only=False):
-        text = ''
+        text_parts = []
 
         # markdown headings or cells can't include
         # block elements (elements w/newlines)
@@ -160,22 +160,34 @@ class MarkdownConverter(object):
             if isinstance(el, Comment) or isinstance(el, Doctype):
                 continue
             elif isinstance(el, NavigableString):
-                text += self.process_text(el)
+                text_parts.append(self.process_text(el))
             else:
-                text_strip = text.rstrip('\n')
-                newlines_left = len(text) - len(text_strip)
+                # Handle the case when text_parts is not empty
+                if text_parts:
+                    text_strip = text_parts[-1].rstrip('\n')
+                    newlines_left = len(text_parts[-1]) - len(text_strip)
+                else:
+                    text_strip = ''
+                    newlines_left = 0
+
                 next_text = self.process_tag(el, convert_children_as_inline)
                 next_text_strip = next_text.lstrip('\n')
                 newlines_right = len(next_text) - len(next_text_strip)
                 newlines = '\n' * max(newlines_left, newlines_right)
-                text = text_strip + newlines + next_text_strip
+                # Modify how we add the new text
+                if text_parts:
+                    text_parts[-1] = text_strip
+                text_parts.append(newlines + next_text_strip)
 
         if not children_only:
             convert_fn = getattr(self, 'convert_%s' % node.name, None)
             if convert_fn and self.should_convert_tag(node.name):
-                text = convert_fn(node, text, convert_as_inline)
+                # Join the text parts before passing to convert_fn
+                text_parts_str = ''.join(text_parts)
+                text_parts = [convert_fn(node, text_parts_str, convert_as_inline)]
 
-        return text
+        # Return the joined text parts
+        return ''.join(text_parts)
 
     def process_text(self, el):
         text = six.text_type(el) or ''
