@@ -140,7 +140,7 @@ class MarkdownConverter(object):
         # Remove whitespace-only textnodes just before, after or
         # inside block-level elements.
         should_remove_inside = should_remove_whitespace_inside(node)
-        children = list(node.children)  # Convert to list to avoid repeated iteration
+        children = list(node.children)
         for i, el in enumerate(children):
             # Quick type check first to avoid unnecessary function calls
             if not isinstance(el, NavigableString):
@@ -179,7 +179,6 @@ class MarkdownConverter(object):
                 next_text_strip = next_text.lstrip('\n')
                 newlines_right = len(next_text) - len(next_text_strip)
                 newlines = '\n' * max(newlines_left, newlines_right)
-                # Modify how we add the new text
                 if text_parts:
                     text_parts[-1] = text_strip
                 text_parts.append(newlines + next_text_strip)
@@ -191,7 +190,6 @@ class MarkdownConverter(object):
                 text_parts_str = ''.join(text_parts)
                 text_parts = [convert_fn(node, text_parts_str, convert_as_inline)]
 
-        # Return the joined text parts
         return ''.join(text_parts)
 
     def process_text(self, el):
