@@ -151,9 +151,23 @@ class MarkdownConverter(object):
             if text.strip():
                 continue
 
+            # If first or last element
+            is_at_extreme_position = (
+                should_remove_inside and (i == 0 or i == len(children) - 1)
+            )
+            # True if there is a preceding sibling, and it should have whitespace removed.
+            has_removal_candidate_to_left = (
+                i > 0 and should_remove_whitespace_outside(children[i - 1])
+            )
+            # True if there is a following sibling, and it should have whitespace removed.
+            has_removal_candidate_to_right = (
+                i < len(children) - 1 and should_remove_whitespace_outside(children[i + 1])
+            )
             # Determine if we can extract based on position and adjacency
             can_extract = (
-                (should_remove_inside and (i == 0 or i == len(children) - 1)) or (i > 0 and should_remove_whitespace_outside(children[i - 1])) or (i < len(children) - 1 and should_remove_whitespace_outside(children[i + 1]))
+                is_at_extreme_position
+                or has_removal_candidate_to_left
+                or has_removal_candidate_to_right
             )
 
             # Extract if conditions are met
@@ -161,27 +175,25 @@ class MarkdownConverter(object):
                 el.extract()
 
         # Convert the children first
+        newlines_left = 0
         for el in node.children:
             if isinstance(el, Comment) or isinstance(el, Doctype):
                 continue
             elif isinstance(el, NavigableString):
                 text_parts.append(self.process_text(el))
             else:
-                # Handle the case when text_parts is not empty
+                text_strip = ''
+                newlines_left = 0
                 if text_parts:
-                    text_strip = text_parts[-1].rstrip('\n')
-                    newlines_left = len(text_parts[-1]) - len(text_strip)
-                else:
-                    text_strip = ''
-                    newlines_left = 0
+                    last_chunk = text_parts.pop()
+                    text_strip = last_chunk.rstrip('\n')
+                    newlines_left = len(last_chunk) - len(text_strip)
 
                 next_text = self.process_tag(el, convert_children_as_inline)
                 next_text_strip = next_text.lstrip('\n')
                 newlines_right = len(next_text) - len(next_text_strip)
                 newlines = '\n' * max(newlines_left, newlines_right)
-                if text_parts:
-                    text_parts[-1] = text_strip
-                text_parts.append(newlines + next_text_strip)
+                text_parts.append(text_strip + newlines + next_text_strip)
 
         if not children_only:
             convert_fn = getattr(self, 'convert_%s' % node.name, None)
